@@ -1,173 +1,260 @@
 # KoH's Spotify Lyrics
 
 [![GitHub](https://img.shields.io/badge/GitHub-Spotify--Lyrics-6f2cff?style=for-the-badge&logo=github)](https://github.com/kerlycanelita/KoHs-Spotify-Lyrics)
-[![Issues](https://img.shields.io/badge/Reportar-Issues-a855f7?style=for-the-badge&logo=githubissues)](https://github.com/kerlycanelita/KoHs-Spotify-Lyrics/issues)
-[![Discord](https://img.shields.io/badge/Discord-9t2VxEF7UU-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/9t2VxEF7UU)
+[![Issues](https://img.shields.io/badge/Report-Issues-a855f7?style=for-the-badge&logo=githubissues)](https://github.com/kerlycanelita/KoHs-Spotify-Lyrics/issues)
+[![Discord](https://img.shields.io/badge/Join-Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/9t2VxEF7UU)
 
-**Overlay de letra sincronizada de Spotify para directos, con su propio túnel
-HTTPS público y sin abrir puertos del router.**
+**A synced Spotify lyrics overlay for live streams, with its own public HTTPS
+tunnel and no router ports to open.**
 
+A local Windows overlay that detects Spotify Desktop through the system media
+session. It shows the active track's data immediately and, where one exists,
+adds the real synced lyric line and its automatic Spanish translation.
 
-Overlay local para Windows que detecta Spotify Desktop mediante la sesión multimedia del sistema. Muestra los datos de la canción activa inmediatamente y, cuando existe, añade la letra sincronizada real y su traducción automática al español.
+## Quick start
 
-## Inicio rápido
-
-0. Descarga `cloudflared.exe` desde
+0. Download `cloudflared.exe` from
    [Cloudflare](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
-   y déjalo en `tools\cloudflared.exe`. El binario no viaja en el repositorio;
-   `iniciar.bat` avisa si falta.
-1. Instala Python 3.11 o posterior para Windows y activa `Add Python to PATH`.
-2. La primera vez, haz doble clic en `configurar-https-tiktok.bat` y acepta la instalación de la autoridad local privada.
-3. Haz doble clic en `iniciar.bat`.
-4. Mantén abierta la consola durante el directo.
-5. El supervisor crea un enlace público `https://…trycloudflare.com/overlay`, lo guarda en `tiktok-url.txt` y lo copia al portapapeles. El BAT puede cerrarse: los servicios continúan en segundo plano hasta ejecutar `shutdown-all.bat`.
-6. Pega ese enlace en la fuente **Enlace** de TikTok LIVE Studio. `localhost` no es aceptado por ese formulario.
+   and leave it at `tools\cloudflared.exe`. The binary does not travel in the
+   repository; `iniciar.bat` warns if it is missing.
+1. Install Python 3.11 or later for Windows and tick `Add Python to PATH`.
+2. The first time, double-click `configurar-https-tiktok.bat` and accept the
+   installation of the private local certificate authority.
+3. Double-click `iniciar.bat`.
+4. Keep the console open during the stream.
+5. The supervisor creates a public `https://…trycloudflare.com/overlay` link,
+   saves it to `tiktok-url.txt` and copies it to the clipboard. The BAT window
+   can be closed: the services keep running in the background until
+   `shutdown-all.bat` is run.
+6. Paste that link into TikTok LIVE Studio's **Link** source. `localhost` is not
+   accepted by that form.
 
-La configuración continúa disponible solo en <https://localhost:3443/config>.
+Configuration stays available only at <https://localhost:3443/config>.
 
-Cuando termines el LIVE, haz doble clic en `shutdown-all.bat`. Este archivo apaga tanto el túnel público como los servidores locales de la aplicación; valida la ruta de cada proceso antes de detenerlo para no cerrar otros programas.
+When the stream is over, double-click `shutdown-all.bat`. It shuts down both the
+public tunnel and the application's local servers, and validates each process's
+path before stopping it so that other programs are left alone.
 
-Como tamaño inicial usa **800 × 300**. El fondo de `/overlay` es transparente y no incluye controles.
+Use **800 × 300** as the initial size. The `/overlay` background is transparent
+and carries no controls.
 
-## Regla de visibilidad
+## Visibility rule
 
-El backend mantiene visibles el título, el artista, el álbum y la portada mientras Spotify tenga una canción activa. Solo acepta letras con timestamps reales y una coincidencia estricta de canción, artista, álbum y duración. Si únicamente existe texto plano o la coincidencia no es fiable, la zona de letra permanece vacía y la tarjeta de la canción continúa visible.
+The backend keeps the title, artist, album and artwork visible for as long as
+Spotify has an active track. It only accepts lyrics with real timestamps and a
+strict match on song, artist, album and duration. If all that exists is plain
+text, or the match is not reliable, the lyric area stays empty and the track card
+stays visible.
 
-| Situación | Resultado en `/overlay` |
+| Situation | Result in `/overlay` |
 |---|---|
-| Spotify cerrado o no detectado | Transparente |
-| Sesión detenida | Transparente |
-| Canción pausada | Visible y congelada en la posición real |
-| Solo letra plana | Solo metadatos; la letra no se muestra |
-| Ningún proveedor tiene texto | Metadatos visibles, sin línea de letra |
-| LRC con timestamps válidos | Metadatos y letra sincronizada visibles |
-| Cambio de canción | Los metadatos cambian de inmediato y se busca la nueva letra |
-| Seek adelante/atrás o reinicio | Se corrige con la posición de Windows en el siguiente ciclo |
-| LRCLIB no disponible | Usa caché positiva; sin ella mantiene los metadatos |
-| Portada remota no disponible | Usa la portada entregada por Windows |
+| Spotify closed or not detected | Transparent |
+| Session stopped | Transparent |
+| Track paused | Visible and frozen at the real position |
+| Plain-text lyrics only | Metadata only; no lyric shown |
+| No provider has any text | Metadata visible, no lyric line |
+| LRC with valid timestamps | Metadata and synced lyric visible |
+| Track change | Metadata changes at once and the new lyric is looked up |
+| Seek forward/back or restart | Corrected from the Windows position on the next cycle |
+| LRCLIB unavailable | Uses the positive cache; without it, keeps the metadata |
+| Remote artwork unavailable | Uses the artwork Windows provides |
 
-## Fuentes de letra
+## Lyric sources
 
-El orden es:
+In order:
 
-1. LRCLIB `/api/get`, usando canción, artista, álbum y duración.
-2. LRCLIB `/api/search`, con coincidencia exacta normalizada y tolerancia de duración de 3 segundos para absorber pequeñas diferencias de catálogo.
-3. AMLL TTML API, una base comunitaria con timestamps por línea o palabra e índices de Spotify, Apple Music, QQ Music y NetEase.
-4. NetEase Cloud Music, que cubre catálogo japonés, doujin y asiático donde LRCLIB suele tener solo texto plano. Exige coincidencia exacta de título y artista y duración a menos de 3 segundos, y descarta las líneas de créditos que NetEase incrusta dentro del propio LRC.
-5. Musixmatch oficial, opcional, únicamente para subtítulos sincronizados LRC.
-6. Si ninguna fuente ofrece timestamps reales para la grabación correcta, no se muestra letra.
+1. **LRCLIB `/api/get`**, using song, artist, album and duration.
+2. **LRCLIB `/api/search`**, with a normalised exact match and a 3-second
+   duration tolerance to absorb small catalogue differences.
+3. **AMLL TTML API**, a community database with per-line or per-word timestamps
+   and indexes for Spotify, Apple Music, QQ Music and NetEase.
+4. **NetEase Cloud Music**, which covers Japanese, doujin and Asian catalogue
+   where LRCLIB usually has plain text only. It demands an exact title and
+   artist match and a duration within 3 seconds, and discards the credit lines
+   NetEase embeds inside the LRC itself.
+5. **Musixmatch official**, optional, for synced LRC subtitles only.
+6. If no source offers real timestamps for the correct recording, no lyric is
+   shown.
 
-LRCLIB no necesita cuenta. Musixmatch requiere una API key y que el plan de la cuenta permita `matcher.subtitle.get`. Para activarlo:
+LRCLIB needs no account. Musixmatch needs an API key and an account plan that
+allows `matcher.subtitle.get`. To enable it:
 
-1. Obtén una clave en la plataforma oficial de Musixmatch.
-2. Copia `secrets.example.json` como `secrets.json`.
-3. Sustituye el valor de ejemplo y reinicia la aplicación.
+1. Get a key from Musixmatch's official platform.
+2. Copy `secrets.example.json` to `secrets.json`.
+3. Replace the example value and restart the application.
 
-También puedes definir la variable de entorno `MUSIXMATCH_API_KEY`. La clave se lee solo en Python, no forma parte de `config.json`, no se envía por WebSocket y nunca llega al JavaScript.
+The `MUSIXMATCH_API_KEY` environment variable works too. The key is read only in
+Python: it is not part of `config.json`, is never sent over the WebSocket, and
+never reaches the JavaScript.
 
-### Por qué Spotify puede enseñar letra sincronizada y el overlay no
+### Why Spotify can show a synced lyric and this overlay cannot
 
-Spotify no expone sus letras por ninguna API: las obtiene de **Musixmatch** bajo licencia y las muestra solo dentro de su aplicación. Las fuentes de este overlay son bases distintas, así que hay canciones que Spotify sincroniza y que aquí solo existen como texto plano. Cuando pasa eso, la aplicación cumple la regla y deja la zona de letra vacía en lugar de inventar tiempos.
+Spotify does not expose its lyrics through any API. It licenses them from
+**Musixmatch** and shows them only inside its own application. This overlay's
+sources are different databases, so there are tracks Spotify syncs that exist
+here as plain text only. When that happens, the application follows the rule and
+leaves the lyric area empty instead of inventing timings.
 
-Si te ocurre con una canción concreta, comprueba primero si LRCLIB la tiene sincronizada en <https://lrclib.net>. Puedes contribuir la versión sincronizada allí y quedará disponible tanto para ti como para el resto.
+If it happens on a specific track, check first whether LRCLIB has it synced at
+<https://lrclib.net>. You can contribute the synced version there, and it becomes
+available both to you and to everyone else.
 
-No se emplean endpoints privados de Spotify ni tokens extraídos de aplicaciones. Spotify Premium no cambia esta limitación porque la API pública de Spotify no ofrece letras. Si todos los proveedores devuelven texto plano o resultados dudosos, el overlay conserva únicamente los metadatos.
+No private Spotify endpoints and no tokens extracted from applications are used.
+Spotify Premium does not change this limitation, because Spotify's public API
+does not offer lyrics. If every provider returns plain text or doubtful results,
+the overlay keeps the metadata alone.
 
-## Traducción
+## Translation
 
-Las líneas sincronizadas se traducen al español mediante MyMemory y, si su cuota diaria se agota, mediante un endpoint público no oficial de Google. Las solicitudes de respaldo se espacian y cambian de ruta si reciben un límite temporal. La traducción se muestra debajo de la línea original, se guarda en `cache/translations` y nunca bloquea ni sustituye la letra original si los servicios remotos fallan. La traducción automática puede requerir correcciones en nombres propios, expresiones o frases ambiguas.
+Synced lines are translated into Spanish through MyMemory and, once its daily
+quota runs out, through an unofficial public Google endpoint. The fallback
+requests are spaced out and change route if they hit a temporary limit. The
+translation is shown below the original line, is stored in `cache/translations`,
+and never blocks or replaces the original lyric if the remote services fail.
+Machine translation can need corrections on proper nouns, idioms and ambiguous
+phrasing.
 
-Para una solución totalmente local sin cuotas, los proyectos LibreTranslate y Argos Translate son compatibles como alternativa futura, pero requieren instalar modelos de idiomas considerablemente más pesados que esta aplicación.
+For a fully local solution with no quotas, LibreTranslate and Argos Translate are
+compatible as a future alternative, but they require installing language models
+considerably heavier than this application.
 
-## Portadas
+## Artwork
 
-La portada de Windows se guarda inmediatamente como fallback. En segundo plano se busca una versión mejor en tres proveedores, por orden:
+The Windows artwork is stored immediately as a fallback. In the background, a
+better version is looked up across three providers, in order:
 
-1. **iTunes Search**, que sirve la portada hasta 3000 × 3000 y responde en una sola consulta.
-2. **Deezer**, que devuelve 1000 × 1000 cuando Apple no tiene la grabación. Descarta resultados cuya duración se aleje más de 15 segundos para no traer la carátula de una versión en directo o un remix con el mismo título.
-3. **MusicBrainz + Cover Art Archive**, en último lugar porque necesita dos peticiones y está limitado a una por segundo.
+1. **iTunes Search**, which serves artwork up to 3000 × 3000 and answers in a
+   single query.
+2. **Deezer**, which returns 1000 × 1000 when Apple does not have the recording.
+   It discards results whose duration is more than 15 seconds away, so it does
+   not bring back the cover of a live version or a remix with the same title.
+3. **MusicBrainz + Cover Art Archive**, last because it needs two requests and is
+   limited to one per second.
 
-MusicBrainz pide identificarse con una forma de contacto. Si alguna vez empieza a rechazar las consultas, define la variable de entorno `KOHS_CONTACT` con tu correo o la URL de tu proyecto y se añadirá al `User-Agent`.
+MusicBrainz asks callers to identify themselves with a contact. If it ever starts
+rejecting queries, set the `KOHS_CONTACT` environment variable to your email or
+your project URL and it will be added to the `User-Agent`.
 
-Tanto los resultados como las ausencias se almacenan en `cache/artwork` para evitar consultas repetidas. Al arrancar se borran las entradas de `cache/artwork`, `cache/lyrics` y `cache/translations` que lleven más de 30 días sin actualizarse, de modo que la carpeta no crece sin límite.
+Both hits and misses are stored in `cache/artwork` to avoid repeated queries. On
+start-up, entries in `cache/artwork`, `cache/lyrics` and `cache/translations`
+that have not been updated in more than 30 days are deleted, so the folder does
+not grow without limit.
 
-Las imágenes se muestran en relación 1:1 con `object-fit: cover`; nunca se deforman.
+Images are shown at a 1:1 ratio with `object-fit: cover`; they are never
+distorted.
 
-## Configuración
+## Configuration
 
-`/config` permite editar y previsualizar:
+`/config` edits and previews:
 
-- Presets Horizontal, Vertical, Compacto, Lyrics y Minimal. En Vertical, el título y los metadatos quedan arriba y las letras debajo.
-- Visibilidad de portada, canción, artista, álbum y ambas líneas de letra.
-- Posición, offsets, separación, relleno, ancho y altura.
-- Colores HEX, RGB y RGBA, incluida transparencia.
-- Arial, Inter, Roboto, Montserrat, Poppins, Open Sans, Oswald, Bebas Neue, Nunito, Lato y Raleway.
-- Tipografía, tamaño, peso, negrita, cursiva, alineación, espaciado, opacidad, sombra y contorno por texto.
-- Forma, tamaño, radio, borde, sombra y opacidad de portada.
-- Una pestaña **Cambio** para animación, curva, duración y salida de la canción anterior.
-- Una pestaña **Traducción** para activar las líneas en español y configurar por separado su fuente, tamaño, color, alineación, opacidad, sombra y estilo.
-- Una pestaña **Letra FX** para la animación y duración del cambio de línea.
+- Horizontal, Vertical, Compact, Lyrics and Minimal presets. In Vertical, the
+  title and metadata sit above and the lyrics below.
+- Visibility of artwork, song, artist, album and both lyric lines.
+- Position, offsets, spacing, padding, width and height.
+- HEX, RGB and RGBA colours, transparency included.
+- Arial, Inter, Roboto, Montserrat, Poppins, Open Sans, Oswald, Bebas Neue,
+  Nunito, Lato and Raleway.
+- Typeface, size, weight, bold, italic, alignment, spacing, opacity, shadow and
+  outline, per text.
+- Artwork shape, size, radius, border, shadow and opacity.
+- A **Change** tab for the animation, curve, duration and exit of the previous
+  track.
+- A **Translation** tab to enable the Spanish lines and configure their font,
+  size, colour, alignment, opacity, shadow and style separately.
+- A **Lyric FX** tab for the line-change animation and its duration.
 
-Las pestañas **Cambio** y **Letra FX** incluyen un botón **Probar animación**. Los ajustes tipográficos se aplican sin reiniciar animaciones en cada movimiento del deslizador, evitando tirones en la vista previa.
+The **Change** and **Lyric FX** tabs include a **Test animation** button.
+Typographic settings are applied without restarting animations on every slider
+movement, which keeps the preview from stuttering.
 
-Cada cambio se aplica de inmediato y se guarda de forma atómica en `config.json`. Si el archivo queda inválido, el programa lo respalda con un nombre `config.invalid-FECHA.json` y restaura valores seguros.
+Every change applies immediately and is saved atomically to `config.json`. If the
+file ends up invalid, the program backs it up as `config.invalid-DATE.json` and
+restores safe values.
 
-La vista previa abre **Spotify actual** de forma predeterminada y enseña sus metadatos reales aunque la canción no tenga letra sincronizada. El botón **Muestra** permite diseñar con una canción ficticia. Ninguno de los dos modos altera la regla de visibilidad de la URL final.
+The preview opens **current Spotify** by default and shows its real metadata even
+when the track has no synced lyric. The **Sample** button allows designing
+against a fictional track. Neither mode alters the visibility rule of the final
+URL.
 
-## Arquitectura y rendimiento
+## Architecture and performance
 
-- FastAPI sirve localmente por HTTPS solo en `127.0.0.1:3443`.
-- `cloudflared` crea un Quick Tunnel con dominio HTTPS público para que TikTok pueda cargar el overlay sin abrir puertos del router.
-- Por el túnel solo se permiten el overlay, sus recursos y consultas de lectura. `/config`, los cambios de configuración y la documentación de la API devuelven 404.
-- El canal WebSocket `/ws` también viaja por el túnel, porque es de solo lectura y expone exactamente los mismos datos que `/overlay`. Su permiso es explícito: al no pasar por el middleware HTTP, se comprueba dentro del propio endpoint, así que cualquier WebSocket que se añada en el futuro queda bloqueado por defecto.
-- La URL pública es temporal. Un supervisor reinicia `cloudflared` si se cierra y deja el dominio nuevo en `tiktok-url.txt`; como los Quick Tunnels no conservan dominio, si esto ocurre también hay que reemplazar el enlace de la fuente de TikTok. `logs/tunnel.log` conserva el diagnóstico.
-- La sesión de Spotify se consulta mediante Windows Global System Media Transport Controls.
-- Metadatos: aproximadamente una vez por segundo.
-- Posición: cuatro veces por segundo; el navegador interpola entre muestras y se resincroniza en cada actualización.
-- Las búsquedas de letra, resultados negativos y portadas tienen caché local.
-- Un cambio de canción cancela la resolución anterior para evitar resultados cruzados.
+- FastAPI serves locally over HTTPS on `127.0.0.1:3443` only.
+- `cloudflared` creates a Quick Tunnel with a public HTTPS domain so TikTok can
+  load the overlay without opening router ports.
+- Only the overlay, its resources and read queries are allowed through the
+  tunnel. `/config`, configuration changes and the API documentation return 404.
+- The `/ws` WebSocket channel also travels through the tunnel, because it is
+  read-only and exposes exactly the same data as `/overlay`. Its permission is
+  explicit: since it does not pass through the HTTP middleware, it is checked
+  inside the endpoint itself, so any WebSocket added in the future is blocked by
+  default.
+- The public URL is temporary. A supervisor restarts `cloudflared` if it closes
+  and leaves the new domain in `tiktok-url.txt`; since Quick Tunnels do not keep
+  a domain, when this happens the link in the TikTok source has to be replaced
+  too. `logs/tunnel.log` keeps the diagnostics.
+- The Spotify session is queried through Windows Global System Media Transport
+  Controls.
+- Metadata: roughly once per second.
+- Position: four times per second; the browser interpolates between samples and
+  resynchronises on every update.
+- Lyric lookups, negative results and artwork are cached locally.
+- A track change cancels the previous resolution, to avoid crossed results.
 
-Requiere Windows 10 1809 o posterior y una sesión de usuario interactiva. No funciona como servicio de Windows ni bajo la cuenta `SYSTEM`, porque esas sesiones no exponen las APIs multimedia del usuario.
+Requires Windows 10 1809 or later and an interactive user session. It does not
+work as a Windows service or under the `SYSTEM` account, because those sessions
+do not expose the user's media APIs.
 
-## Diagnóstico
+## Diagnostics
 
-Comprueba <https://localhost:3443/api/health>. Los estados habituales son:
+Check <https://localhost:3443/api/health>. The usual states are:
 
-- `spotify_unavailable`: Spotify Desktop no expone una sesión multimedia.
-- `loading_lyrics`: los metadatos están visibles mientras se comprueba la letra.
-- `no_synced_lyrics`: ningún proveedor devolvió timestamps válidos; los metadatos permanecen visibles.
-- `not_playing`: la sesión está detenida; una pausa conserva la última letra si la canción ya era válida.
-- `ready`: el overlay está visible.
+- `spotify_unavailable`: Spotify Desktop is not exposing a media session.
+- `loading_lyrics`: metadata is visible while the lyric is being checked.
+- `no_synced_lyrics`: no provider returned valid timestamps; metadata stays
+  visible.
+- `not_playing`: the session is stopped; a pause keeps the last lyric if the
+  track was already valid.
+- `ready`: the overlay is visible.
 
-Si TikTok conserva una captura antigua, elimina y vuelve a crear la fuente usando la dirección actual guardada en `tiktok-url.txt`. No uses `localhost` en TikTok; se reserva para abrir la configuración en tu propio navegador.
+If TikTok keeps an old capture, delete and recreate the source using the current
+address saved in `tiktok-url.txt`. Do not use `localhost` in TikTok; it is
+reserved for opening the configuration in your own browser.
 
-## Pruebas
+## Tests
 
-Desde PowerShell:
+From PowerShell:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Las pruebas cubren parsing LRC, rechazo de texto plano, caché, fallback de proveedor, traducción, migración de configuración y la política de visibilidad ante cambios de canción y ausencia de Spotify.
+The tests cover LRC parsing, plain-text rejection, caching, provider fallback,
+translation, configuration migration, and the visibility policy across track
+changes and Spotify being absent.
 
-La secuencia visual del overlay tiene su propia prueba, sin dependencias más allá de Node:
+The overlay's visual sequence has its own test, with no dependency beyond Node:
 
 ```powershell
 node tests\overlay-swap.test.mjs
 ```
 
-Comprueba que la tarjeta no cambia hasta tener la portada decodificada, que el hueco de la imagen nunca queda vacío, que una canción sin portada no bloquea el cambio y que una portada que llega tarde se coloca sin repetir la animación.
+It checks that the card does not change until the artwork has been decoded, that
+the image slot is never left empty, that a track without artwork does not block
+the change, and that artwork arriving late is placed without replaying the
+animation.
 
-## Secretos
+## Secrets
 
-`secrets.example.json` es la plantilla. Cópiala a `secrets.json` y pon ahí tu
-clave si vas a usar el proveedor opcional de Musixmatch. `secrets.json`, la
-carpeta `certs/` con la autoridad local y `tiktok-url.txt` están excluidos del
-repositorio y no deben subirse.
+`secrets.example.json` is the template. Copy it to `secrets.json` and put your
+key there if you are going to use the optional Musixmatch provider.
+`secrets.json`, the `certs/` folder holding the local authority, and
+`tiktok-url.txt` are excluded from the repository and must not be uploaded.
 
-## Créditos
+## Credits
 
-Hecho por **zymekoh**. La letra viene de LRCLIB y del resto de proveedores
-listados arriba; Spotify, TikTok y Cloudflare son de sus respectivos dueños.
+Made by **zymekoh**. Lyrics come from LRCLIB and the other providers listed
+above; Spotify, TikTok and Cloudflare belong to their respective owners.
+
+The application's own interface and its `.bat` scripts are in Spanish, which is
+the language of the streams it was built for.
