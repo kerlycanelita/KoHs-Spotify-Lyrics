@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-label="Portada de ejemplo">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset=".48" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#06b6d4"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".7" cy=".22" r=".75">
+      <stop offset="0" stop-color="#fff" stop-opacity=".7"/>
+      <stop offset=".32" stop-color="#fff" stop-opacity=".08"/>
+      <stop offset="1" stop-color="#020617" stop-opacity=".35"/>
+    </radialGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="32"/></filter>
+  </defs>
+  <rect width="600" height="600" fill="url(#bg)"/>
+  <circle cx="430" cy="128" r="210" fill="url(#glow)"/>
+  <circle cx="115" cy="510" r="150" fill="#ec4899" opacity=".45" filter="url(#blur)"/>
+  <path d="M0 416c106-68 182-84 270-32s175 70 330-20v236H0z" fill="#081127" opacity=".55"/>
+  <g fill="none" stroke="#fff" stroke-linecap="round" opacity=".9">
+    <path d="M162 310v-74l202-45v77" stroke-width="24"/>
+    <ellipse cx="126" cy="337" rx="54" ry="39" fill="#fff" stroke-width="8" transform="rotate(-12 126 337)"/>
+    <ellipse cx="328" cy="292" rx="54" ry="39" fill="#fff" stroke-width="8" transform="rotate(-12 328 292)"/>
+  </g>
+  <text x="52" y="520" fill="#fff" font-family="Arial, sans-serif" font-size="38" font-weight="700" letter-spacing="7">MIDNIGHT</text>
+  <text x="54" y="559" fill="#dbeafe" font-family="Arial, sans-serif" font-size="18" font-weight="600" letter-spacing="10">SIGNALS</text>
+</svg>

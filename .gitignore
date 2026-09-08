@@ -1,0 +1,26 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+secrets.json
+config.invalid-*.json
+certs/
+cache/artwork/*
+cache/lyrics/*
+cache/translations/*
+tiktok-url.txt
+logs/
+runtime/
+!cache/artwork/.gitkeep
+!cache/lyrics/.gitkeep
+!cache/translations/.gitkeep
+
+# Binario de terceros: se descarga aparte
+tools/cloudflared.exe
+
+# Herramientas de asistencia
+.claude/
+.cursor/
+.codex*/
+CLAUDE.md
+AGENTS.md

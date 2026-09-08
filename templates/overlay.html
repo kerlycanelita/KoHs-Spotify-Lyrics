@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>KoH's Spotify Lyrics Overlay</title>
+  <link rel="stylesheet" href="/font-assets/catalog.css?v=20260829-localfonts1">
+  <link rel="stylesheet" href="/static/overlay.css?v=20260902-swap2">
+</head>
+<body class="overlay-hidden">
+  <main id="stage" aria-live="off">
+    <article id="overlay-card" class="overlay-card" aria-hidden="true">
+      <img id="artwork" class="artwork" alt="" draggable="false">
+      <div id="metadata" class="metadata">
+        <div id="track-title" class="text-field track-title"></div>
+        <div id="artist" class="text-field artist"></div>
+        <div id="album" class="text-field album"></div>
+      </div>
+      <div id="lyrics" class="lyrics">
+        <div id="current-lyric" class="text-field current-lyric"></div>
+        <div id="current-translation" class="text-field translated-lyric current-translation"></div>
+        <div id="next-lyric" class="text-field next-lyric"></div>
+        <div id="next-translation" class="text-field translated-lyric next-translation"></div>
+      </div>
+    </article>
+  </main>
+  <script src="/static/overlay.js?v=20260902-swap2" defer></script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Configurar · KoH's Spotify Lyrics</title>
+  <link rel="stylesheet" href="/font-assets/catalog.css?v=20260829-localfonts1">
+  <link rel="stylesheet" href="/static/config.css?v=20260902-swap2">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/config" aria-label="Inicio de configuración">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span><strong>KoH's</strong><small>Spotify Lyrics</small></span>
+    </a>
+    <div class="topbar-actions">
+      <span id="save-status" class="save-status"><span></span> Cargando…</span>
+      <a class="button secondary" href="/overlay" target="_blank" rel="noopener">Abrir overlay</a>
+      <button id="reset-button" class="button ghost" type="button">Restablecer</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="control-panel" aria-label="Controles del overlay">
+      <nav id="tabs" class="tabs" aria-label="Secciones">
+        <button class="active" type="button" data-tab="general">Diseño</button>
+        <button type="button" data-tab="text">Textos</button>
+        <button type="button" data-tab="artwork">Portada</button>
+        <button type="button" data-tab="song_transition">Cambio</button>
+        <button type="button" data-tab="translation">Traducción</button>
+        <button type="button" data-tab="effects">Letra FX</button>
+      </nav>
+      <div id="control-content" class="control-content">
+        <div class="loading-card">Preparando configuración…</div>
+      </div>
+    </section>
+
+    <aside class="preview-panel" aria-label="Vista previa">
+      <div class="preview-header">
+        <div>
+          <span class="eyebrow">Vista previa en vivo</span>
+          <h1>Tu overlay, tal como saldrá al aire</h1>
+        </div>
+        <div class="preview-toolbar">
+          <div id="preview-source" class="preview-sizes" aria-label="Contenido de vista previa">
+            <button class="active" type="button" data-preview-source="live">Spotify actual</button>
+            <button type="button" data-preview-source="sample">Muestra</button>
+          </div>
+          <span class="preview-resolution">Lienzo fijo 1280 × 720</span>
+        </div>
+      </div>
+      <div class="preview-shell">
+        <div id="preview-canvas" class="preview-canvas" aria-label="Vista previa proporcional de 1280 por 720">
+          <iframe id="preview-frame" src="/overlay?preview=1&amp;source=live&amp;v=20260902-swap2" title="Vista previa del overlay"></iframe>
+        </div>
+      </div>
+      <div class="status-strip">
+        <div>
+          <span id="runtime-dot" class="runtime-dot"></span>
+          <strong id="runtime-title">Conectando con Spotify…</strong>
+          <small id="runtime-detail">La canción aparecerá aunque no exista letra sincronizada.</small>
+        </div>
+        <code id="overlay-url"></code>
+      </div>
+      <div class="notice">
+        <span aria-hidden="true">◈</span>
+        <p><strong>Actualización continua activa.</strong> Cada cambio de Spotify muestra inmediatamente portada y metadatos. La letra y su traducción aparecen cuando los proveedores terminan de resolverlas.</p>
+      </div>
+    </aside>
+  </main>
+
+  <script src="/static/config.js?v=20260902-swap2" defer></script>
+</body>
+</html>
