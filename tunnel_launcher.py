@@ -20,7 +20,10 @@ from urllib.parse import quote, urlsplit
 
 BASE_DIR = Path(__file__).resolve().parent
 CLOUDFLARED = BASE_DIR / "tools" / "cloudflared.exe"
-LOCAL_BASE_URL = "https://localhost:3443"
+LOCAL_BASE_URL = (
+    os.environ.get("KOHS_LOCAL_BASE_URL", "").strip()
+    or ("http://localhost:3000" if os.environ.get("KOHS_HTTP_ONLY") == "1" else "https://localhost:3443")
+)
 TUNNEL_URL_PATTERN = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com", re.IGNORECASE)
 SERVER_LOG = BASE_DIR / "logs" / "server.log"
 TUNNEL_LOG = BASE_DIR / "logs" / "tunnel.log"
@@ -58,7 +61,7 @@ def cloudflare_ipv4_addresses(hostname: str) -> list[str]:
         headers={"Accept": "application/dns-json", "User-Agent": "KoHsSpotifyLyrics/1.0"},
     )
     try:
-        with urllib.request.urlopen(request, timeout=10) as response:
+        with urllib.request.urlopen(request, timeout=6) as response:
             payload = json.load(response)
     except (OSError, ValueError, urllib.error.URLError):
         return []
@@ -69,7 +72,7 @@ def cloudflare_ipv4_addresses(hostname: str) -> list[str]:
     ]
 
 
-def request_ok_at_address(url: str, address: str, timeout: float = 10.0) -> bool:
+def request_ok_at_address(url: str, address: str, timeout: float = 8.0) -> bool:
     parsed = urlsplit(url)
     if parsed.scheme != "https" or not parsed.hostname:
         return False
@@ -94,15 +97,30 @@ def request_ok_at_address(url: str, address: str, timeout: float = 10.0) -> bool
         return False
 
 
-def wait_for_public_overlay(url: str, seconds: int = 90) -> bool:
+def wait_for_public_overlay(url: str, seconds: int = 45) -> bool:
+    """Wait briefly for a brand-new Quick Tunnel to become reachable.
+
+    Prefer the machine's normal DNS path because some networks block or delay
+    cloudflare-dns.com even while trycloudflare.com itself works.  The manual
+    Cloudflare DNS path remains only as a fallback.
+    """
     hostname = urlsplit(url).hostname
     if not hostname:
         return False
+
     deadline = time.monotonic() + seconds
+    last_doh_attempt = 0.0
     while time.monotonic() < deadline:
-        for address in cloudflare_ipv4_addresses(hostname):
-            if request_ok_at_address(url, address):
-                return True
+        if request_ok(url, verify_tls=True, timeout=6):
+            return True
+
+        now = time.monotonic()
+        if now - last_doh_attempt >= 8:
+            last_doh_attempt = now
+            for address in cloudflare_ipv4_addresses(hostname):
+                if request_ok_at_address(url, address):
+                    return True
+
         time.sleep(1)
     return False
 
@@ -182,19 +200,25 @@ def acquire_launcher_lock() -> object | None:
 
 
 def start_public_tunnel() -> tuple[subprocess.Popen[str], queue.Queue[str | None]]:
-    process = subprocess.Popen(
+    command = [
+        str(CLOUDFLARED),
+        "tunnel",
+        "--url",
+        LOCAL_BASE_URL,
+    ]
+    if LOCAL_BASE_URL.lower().startswith("https://"):
+        command.append("--no-tls-verify")
+    command.extend(
         [
-            str(CLOUDFLARED),
-            "tunnel",
-            "--url",
-            LOCAL_BASE_URL,
-            "--no-tls-verify",
             "--http-host-header",
             "tunnel.local",
             "--no-autoupdate",
             "--loglevel",
             "info",
-        ],
+        ]
+    )
+    process = subprocess.Popen(
+        command,
         cwd=BASE_DIR,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -270,13 +294,21 @@ def supervised_main() -> int:
                 tunnel_process, output = start_public_tunnel()
                 overlay_url = discover_public_url(tunnel_process, output)
                 print(f"Dominio creado: {overlay_url.removesuffix('/overlay')}", flush=True)
-                print("Esperando a que Cloudflare termine de activarlo...", flush=True)
-                if not wait_for_public_overlay(overlay_url, seconds=90):
-                    raise RuntimeError(
-                        "El enlace público se creó, pero el overlay todavía no responde."
-                    )
+                print("Esperando brevemente a que Cloudflare termine de activarlo...", flush=True)
+
+                public_ready = wait_for_public_overlay(overlay_url, seconds=45)
                 save_public_url(overlay_url)
-                if first_connection:
+                if public_ready:
+                    print("Overlay público verificado correctamente.", flush=True)
+                else:
+                    print(
+                        "[AVISO] Cloudflare entregó la URL, pero la comprobación pública local "
+                        "todavía no responde. Se conservará el túnel porque algunos DNS tardan "
+                        "en propagar; prueba el enlace de nuevo en unos segundos.",
+                        flush=True,
+                    )
+
+                if first_connection and os.environ.get("KOHS_NO_BROWSER") != "1":
                     webbrowser.open(f"{LOCAL_BASE_URL}/config")
                     first_connection = False
                 print("=" * 72, flush=True)
