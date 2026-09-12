@@ -1,0 +1,165 @@
+name: Start overlay
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration_hours:
+        description: Tiempo antes del apagado automático
+        required: true
+        default: "5"
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "3"
+          - "4"
+          - "5"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kohs-spotify-overlay-control
+  cancel-in-progress: false
+
+jobs:
+  start:
+    name: Start public overlay
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare and start overlay
+        shell: powershell
+        env:
+          DURATION_HOURS: ${{ inputs.duration_hours }}
+          MUSIXMATCH_API_KEY: ${{ secrets.MUSIXMATCH_API_KEY }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $repoRoot = $env:GITHUB_WORKSPACE
+          $controlRoot = Join-Path $env:LOCALAPPDATA 'KoHsSpotifyLyricsGitHub'
+          $runtimeRoot = Join-Path $controlRoot 'app'
+          $activeRuntimeFile = Join-Path $controlRoot 'active-runtime.txt'
+          $activeTokenFile = Join-Path $controlRoot 'active-session-token.txt'
+
+          New-Item -ItemType Directory -Force -Path $controlRoot | Out-Null
+
+          # Stop a previous session before replacing its runtime files.
+          if (Test-Path $activeRuntimeFile) {
+            $oldRuntime = (Get-Content $activeRuntimeFile -Raw).Trim()
+            $oldPython = Join-Path $oldRuntime '.venv\Scripts\python.exe'
+            $oldShutdown = Join-Path $oldRuntime 'shutdown_all.py'
+            if ((Test-Path $oldPython) -and (Test-Path $oldShutdown)) {
+              & $oldPython $oldShutdown | Write-Host
+            }
+          }
+
+          # Preserve the last UI configuration across GitHub starts.
+          $savedConfig = Join-Path $controlRoot 'config.json'
+          if (Test-Path (Join-Path $runtimeRoot 'config.json')) {
+            Copy-Item (Join-Path $runtimeRoot 'config.json') $savedConfig -Force
+          }
+
+          if (Test-Path $runtimeRoot) {
+            Remove-Item $runtimeRoot -Recurse -Force
+          }
+          New-Item -ItemType Directory -Force -Path $runtimeRoot | Out-Null
+
+          $null = robocopy $repoRoot $runtimeRoot /E /XD .git .venv logs runtime tools /XF tiktok-url.txt
+          if ($LASTEXITCODE -ge 8) {
+            throw "robocopy failed with exit code $LASTEXITCODE"
+          }
+
+          if (Test-Path $savedConfig) {
+            Copy-Item $savedConfig (Join-Path $runtimeRoot 'config.json') -Force
+          }
+
+          New-Item -ItemType Directory -Force -Path (Join-Path $runtimeRoot 'tools') | Out-Null
+          $cloudflared = Join-Path $runtimeRoot 'tools\cloudflared.exe'
+          Invoke-WebRequest -Uri 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe' -OutFile $cloudflared
+
+          # A GitHub checkout has no private localhost certificate. Force the
+          # local server to HTTP while Cloudflare still exposes public HTTPS.
+          $launcherPath = Join-Path $runtimeRoot 'tunnel_launcher.py'
+          $launcher = Get-Content $launcherPath -Raw
+          $launcher = $launcher.Replace('LOCAL_BASE_URL = "https://localhost:3443"', 'LOCAL_BASE_URL = "http://localhost:3000"')
+          Set-Content -Path $launcherPath -Value $launcher -Encoding UTF8
+
+          Push-Location $runtimeRoot
+          try {
+            $pythonCommand = Get-Command py -ErrorAction SilentlyContinue
+            if ($pythonCommand) {
+              & py -3 -m venv .venv
+            } else {
+              & python -m venv .venv
+            }
+            if ($LASTEXITCODE -ne 0) { throw 'Could not create Python virtual environment.' }
+
+            & .\.venv\Scripts\python.exe -m pip install --disable-pip-version-check -r requirements.txt
+            if ($LASTEXITCODE -ne 0) { throw 'Could not install Python dependencies.' }
+
+            New-Item -ItemType Directory -Force -Path logs, runtime | Out-Null
+            Remove-Item tiktok-url.txt -Force -ErrorAction SilentlyContinue
+
+            # Prevent the self-hosted Actions runner from reaping these children
+            # when this job finishes. They are intentionally managed by shutdown_all.py.
+            Remove-Item Env:RUNNER_TRACKING_ID -ErrorAction SilentlyContinue
+            $env:KOHS_HTTP_ONLY = '1'
+
+            $launcherProcess = Start-Process -FilePath (Join-Path $runtimeRoot '.venv\Scripts\python.exe') `
+              -ArgumentList '-u', 'tunnel_launcher.py' `
+              -WorkingDirectory $runtimeRoot `
+              -WindowStyle Hidden `
+              -RedirectStandardOutput (Join-Path $runtimeRoot 'logs\github-launcher.log') `
+              -RedirectStandardError (Join-Path $runtimeRoot 'logs\github-launcher-error.log') `
+              -PassThru
+
+            $urlFile = Join-Path $runtimeRoot 'tiktok-url.txt'
+            $deadline = (Get-Date).AddSeconds(180)
+            while (-not (Test-Path $urlFile)) {
+              if ($launcherProcess.HasExited) {
+                $stderr = Get-Content (Join-Path $runtimeRoot 'logs\github-launcher-error.log') -Raw -ErrorAction SilentlyContinue
+                $stdout = Get-Content (Join-Path $runtimeRoot 'logs\github-launcher.log') -Raw -ErrorAction SilentlyContinue
+                throw "Overlay launcher exited early.`n$stdout`n$stderr"
+              }
+              if ((Get-Date) -gt $deadline) {
+                throw 'Timed out waiting for the public overlay URL.'
+              }
+              Start-Sleep -Seconds 2
+            }
+
+            $overlayUrl = (Get-Content $urlFile -Raw).Trim()
+            if (-not $overlayUrl.StartsWith('https://')) {
+              throw "Unexpected overlay URL: $overlayUrl"
+            }
+
+            $sessionToken = [guid]::NewGuid().ToString('N')
+            Set-Content -Path $activeRuntimeFile -Value $runtimeRoot -Encoding UTF8
+            Set-Content -Path $activeTokenFile -Value $sessionToken -Encoding UTF8
+
+            $timerScript = Join-Path $runtimeRoot 'github_auto_shutdown.ps1'
+            $timerArgs = @(
+              '-NoProfile',
+              '-ExecutionPolicy', 'Bypass',
+              '-File', $timerScript,
+              '-BaseRoot', $controlRoot,
+              '-RuntimeRoot', $runtimeRoot,
+              '-Hours', $env:DURATION_HOURS,
+              '-SessionToken', $sessionToken
+            )
+            Start-Process -FilePath 'powershell.exe' -ArgumentList $timerArgs -WindowStyle Hidden | Out-Null
+
+            "## KoH's Spotify Lyrics" >> $env:GITHUB_STEP_SUMMARY
+            "" >> $env:GITHUB_STEP_SUMMARY
+            "**Overlay público:** $overlayUrl" >> $env:GITHUB_STEP_SUMMARY
+            "" >> $env:GITHUB_STEP_SUMMARY
+            "Se apagará automáticamente en **$env:DURATION_HOURS hora(s)** o antes ejecutando el workflow **Shutdown overlay**." >> $env:GITHUB_STEP_SUMMARY
+
+            Write-Host "PUBLIC_OVERLAY_URL=$overlayUrl"
+          }
+          finally {
+            Pop-Location
+          }
