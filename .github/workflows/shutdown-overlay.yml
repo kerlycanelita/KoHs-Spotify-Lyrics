@@ -1,0 +1,49 @@
+name: Shutdown overlay
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kohs-spotify-overlay-control
+  cancel-in-progress: false
+
+jobs:
+  shutdown:
+    name: Stop public overlay
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 10
+
+    steps:
+      - name: Stop overlay
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $controlRoot = Join-Path $env:LOCALAPPDATA 'KoHsSpotifyLyricsGitHub'
+          $activeRuntimeFile = Join-Path $controlRoot 'active-runtime.txt'
+          $activeTokenFile = Join-Path $controlRoot 'active-session-token.txt'
+
+          if (-not (Test-Path $activeRuntimeFile)) {
+            Write-Host 'No active KoHs Spotify Lyrics runtime was registered.'
+            "No había un overlay activo registrado." >> $env:GITHUB_STEP_SUMMARY
+            exit 0
+          }
+
+          $runtimeRoot = (Get-Content $activeRuntimeFile -Raw).Trim()
+          $python = Join-Path $runtimeRoot '.venv\Scripts\python.exe'
+          $shutdown = Join-Path $runtimeRoot 'shutdown_all.py'
+
+          if ((Test-Path $python) -and (Test-Path $shutdown)) {
+            & $python $shutdown | Write-Host
+          } else {
+            Write-Warning 'The registered runtime is incomplete; clearing the control files.'
+          }
+
+          Remove-Item $activeRuntimeFile -Force -ErrorAction SilentlyContinue
+          Remove-Item $activeTokenFile -Force -ErrorAction SilentlyContinue
+
+          "## KoH's Spotify Lyrics" >> $env:GITHUB_STEP_SUMMARY
+          "" >> $env:GITHUB_STEP_SUMMARY
+          "Overlay público **apagado**. El enlace de Cloudflare ya no debería responder." >> $env:GITHUB_STEP_SUMMARY
