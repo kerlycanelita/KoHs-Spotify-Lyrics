@@ -9,17 +9,13 @@ echo  Apagando KoH's Spotify Lyrics
 echo  =============================
 echo.
 
-if exist ".venv\Scripts\python.exe" (
-    ".venv\Scripts\python.exe" shutdown_all.py
-) else (
-    where py >nul 2>nul
-    if not errorlevel 1 (
-        py -3 shutdown_all.py
-    ) else (
-        python shutdown_all.py
-    )
-)
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0shutdown.ps1"
+set "EXIT_CODE=%ERRORLEVEL%"
 
 echo.
-pause
-exit /b 0
+if not "%EXIT_CODE%"=="0" (
+    echo [AVISO] El apagado termino con advertencias. Revisa los mensajes anteriores.
+)
+echo Presiona una tecla para cerrar...
+pause >nul
+exit /b %EXIT_CODE%
